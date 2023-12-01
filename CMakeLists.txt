@@ -8,4 +8,5 @@ file(GLOB SRCS
 )
 
 add_executable(matrix ${SRCS})
+configure_file(test_matrix.py ${CMAKE_CURRENT_BINARY_DIR}/test_matrix.py COPYONLY)
 target_include_directories(matrix PRIVATE ../src)

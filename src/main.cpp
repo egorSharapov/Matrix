@@ -2,19 +2,20 @@
 #include <iostream>
 
 int main() {
-    Matrix<int> m(5, 5, 19);
-    m.dump(std::cout);
+    size_t size = 0;
+    int cell = 0;
 
-    Matrix<int> m2 = Matrix<int>::identity(5);
-    m2.dump(std::cout);
+    std::cin >> size;
+    Matrix<int> m(size, size);
 
-    std::optional<int> trace = m2.trace();
-    std::cout << "trace " << trace.value_or(999) << "\n";
-
-    std::cout << "m[1][1] " << m[1][1] << "\n";
-
-    m[1][1] = 10;
-    std::cout << "m[1][1] " << m[1][1] << "\n";
-
+    for (int i = 0; i < size; ++i) {
+        for (int j = 0; j < size; ++j) {
+            std::cin >> cell;
+            m[i][j] = cell;
+        }
+    }
+    long double determinant = m.det().value_or(0);
+    std::cout << std::round(determinant);
+    
     return 0;
 }
