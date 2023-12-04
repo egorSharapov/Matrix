@@ -1,10 +1,11 @@
 #include <algorithm>
+#include <cmath>
 #include <iomanip>
 #include <iostream>
 #include <limits>
 #include <optional>
 #include <ostream>
-#include <cmath>
+#include <utility>
 #include <vector>
 
 template <typename T = int>
@@ -20,9 +21,11 @@ class Matrix {
         it m_row;
 
       public:
-        Row(const it other) : m_row(other) {}
-        const T &operator[](size_t n) const { return *(m_row + n); }
-        T &operator[](size_t n) { return *(m_row + n); }
+        /*constexpr*/ Row(it other) : m_row(other) {}
+        /*constexpr*/ const T &operator[](size_t n) const {
+            return *(m_row + n);
+        }
+        /*constexpr*/ T &operator[](size_t n) { return *(m_row + n); }
     };
 
     void swap(Matrix &rhs) {
@@ -32,23 +35,21 @@ class Matrix {
     }
 
   public:
-    Matrix() = default;
-    Matrix(size_t rows, size_t columns, T val = {})
-        : m_rows(rows), m_columns(columns) {
-        m_data.reserve(m_rows * m_columns);
-        std::fill_n(m_data.begin(), m_rows * m_columns, val);
-    }
-
+    /*constexpr*/ Matrix() = default;
+    /*constexpr*/ Matrix(const Matrix &other) = default;
     Matrix(Matrix &&other) noexcept
         : m_data(std::move(other.m_data)),
           m_columns(std::exchange(other.m_columns, 0)),
           m_rows(std::exchange(other.m_rows, 0)) {}
 
-    Matrix(const Matrix &other) = default;
+    /*constexpr*/ Matrix(size_t rows, size_t columns, T val = {})
+        : m_rows(rows), m_columns(columns) {
+        m_data.resize(m_rows * m_columns, val);
+    }
 
-    Matrix(std::initializer_list<std::initializer_list<T>> matrix) {
-        m_rows = matrix.size();
-        m_columns = matrix.begin()->size();
+    /*constexpr*/ Matrix(std::initializer_list<std::initializer_list<T>> matrix)
+        : m_rows(matrix.size()), m_columns(matrix.begin()->size()) {
+
         for (const auto row : matrix) {
             for (const auto elem : row) {
                 m_data.push_back(elem);
@@ -59,18 +60,12 @@ class Matrix {
     static Matrix<T> identity(size_t rows) {
         Matrix<T> m{rows, rows};
         for (size_t i = 0; i < rows; ++i) {
-            for (size_t j = 0; j < rows; ++j) {
-                if (i == j) {
-                    m.m_data.push_back(1);
-                } else {
-                    m.m_data.push_back(0);
-                }
-            }
+            m[i][i] = 1;
         }
         return m;
     }
 
-    Matrix &operator=(const Matrix &other) {
+    /*constexpr*/ Matrix &operator=(const Matrix &other) {
         if (this == std::addressof(other)) {
             return *this;
         }
@@ -80,7 +75,7 @@ class Matrix {
         return *this;
     }
 
-    Matrix &operator=(Matrix &&other) noexcept {
+    /*constexpr*/ Matrix &operator=(Matrix &&other) noexcept {
         if (this == std::addressof(other)) {
             return *this;
         }
@@ -90,7 +85,11 @@ class Matrix {
         return *this;
     }
 
-    Matrix &operator+=(const Matrix &other) {
+    /*constexpr*/ bool equivalency(const Matrix &rhs) const {
+        return (m_columns == rhs.m_columns) && (m_rows == rhs.m_rows);
+    }
+
+    /*constexpr*/ Matrix &operator+=(const Matrix &other) {
         if (equivalency(other)) {
             for (int i = 0; i < m_data.size(); ++i) {
                 m_data[i] += other.m_data[i];
@@ -99,7 +98,7 @@ class Matrix {
         return *this;
     }
 
-    Matrix &operator-=(const Matrix &other) {
+    /*constexpr*/ Matrix &operator-=(const Matrix &other) {
         if (equivalency(other)) {
             for (int i = 0; i < m_data.size(); ++i) {
                 m_data[i] -= other.m_data[i];
@@ -108,14 +107,12 @@ class Matrix {
         return *this;
     }
 
-    Row operator[](size_t n) { return {m_data.begin() + m_rows * n}; }
-
-    bool equivalency(const Matrix &rhs) const {
-        return (m_columns == rhs.m_columns) && (m_rows == rhs.m_rows);
+    /*constexpr*/ Row operator[](size_t n) {
+        return {m_data.begin() + m_rows * n};
     }
 
-    size_t ncolumns() const { return m_columns; }
-    size_t nrows() const { return m_rows; }
+    /*constexpr*/ size_t ncolumns() const { return m_columns; }
+    /*constexpr*/ size_t nrows() const { return m_rows; }
 
     std::optional<T> trace() const {
         if (m_rows != m_columns) {
@@ -146,52 +143,63 @@ class Matrix {
 
     bool equal(const Matrix &rhs) const { return m_data == rhs.m_data; }
 
+    /*constexpr*/ void swap_rows(size_t lhs_idx, size_t rhs_idx) {
+        auto lhs_begin = m_data.begin() + lhs_idx * m_rows;
+        auto rhs_begin = m_data.begin() + rhs_idx * m_rows;
+
+        std::swap_ranges(lhs_begin, lhs_begin + m_columns, rhs_begin);
+    }
+
     template <typename CharT>
     void dump(std::basic_ostream<CharT> &out) const {
-        for (int i = 0; i < m_columns; ++i) {
+        for (int i = 0; i < m_rows; ++i) {
             out << "[ ";
-            for (int j = 0; j < m_rows; ++j) {
-                out << std::setw(4) << m_data[i * m_rows + j] << " ";
-            }
+            auto row = m_data.begin() + i * m_rows;
+            std::for_each(row, row + m_columns, [&out](T cell) mutable {
+                out << std::setw(2) << cell << " ";
+            });
             out << "]\n";
         }
     }
 
-    std::optional<long double> det() const {
+    /*constexpr*/ std::optional<T> det() const {
         if (m_rows != m_columns) {
             return std::nullopt;
         }
 
-        Matrix<long double> clone{m_rows, m_columns};
-        for (int i = 0; i < m_rows; ++i) {
-            for (int j = 0; j < m_rows; ++j) {
-                clone[i][j] = m_data[i * m_rows + j];
-            }
-        }
-        long double determine = 1;
+        Matrix<T> clone{*this};
+        size_t N = clone.nrows();
+        char sign = 1;
 
-        for (int k = 0; k < m_rows; ++k) {
-            if (std::abs(clone[k][k]) <
-                std::numeric_limits<long double>::epsilon()) {
-                continue;
-            }
-            long double D = clone[k][k];
-            determine *= D;
+        // Bareiss algotithm
+        for (size_t i = 0; i < N - 1; ++i) {
 
-            for (int i = 0; i < m_columns; ++i) {
-                clone[k][i] = clone[k][i] / D;
+            if (clone[i][i] == 0) {
+                size_t pivot = 0;
+                for (pivot = i + 1; pivot < N; ++pivot) {
+                    if (clone[pivot][i]) {
+                        clone.swap_rows(pivot, i);
+                        sign = -sign;
+                        break;
+                    }
+                }
+                if (pivot == N) {
+                    return {{}};
+                }
             }
-            for (int i = k + 1; i < m_rows; ++i) {
-                long double K = clone[i][k] / clone[k][k];
-                for (int j = 0; j < m_columns; ++j) {
-                    clone[i][j] -= clone[k][j] * K;
+
+            for (size_t j = i + 1; j < N; ++j) {
+                for (size_t k = i + 1; k < N; ++k) {
+                    clone[j][k] =
+                        (clone[j][k] * clone[i][i] - clone[j][i] * clone[i][k]);
+
+                    if (i != 0) {
+                        clone[j][k] /= clone[i - 1][i - 1];
+                    }
                 }
             }
         }
-        // for (int i = 0; i < clone.nrows(); ++i) {
-        //     determine *= clone[i][i];
-        // }
-        return {determine};
+        return {clone[N - 1][N - 1]};
     }
 };
 

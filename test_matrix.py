@@ -128,17 +128,15 @@ class MatrixGen:
 
 
 if __name__ == "__main__":
-    matrix_size = 10
-    ntest = 5
     parser = argparse.ArgumentParser(
                     prog='Matrix tester',
                     description='Tests determinant calculations')
     parser.add_argument('--file', dest='file', required=True, help='path to program under tests')
-    parser.add_argument("--n", dest='ntest', help='number of tests')
+    parser.add_argument('--size', dest='matrix_size', help='size of matrix', default=5, type=int)
+    parser.add_argument('-n', dest='ntest', help='number of tests', default=5, type=int)
     args = parser.parse_args()
 
-    tester = Tester(ntest)
-    for i in range(ntest):
-        matrix, determinant = MatrixGen.get(matrix_size)
-        # print(matrix)
-        tester.run(Tester.convert_args(args.file), Tester.convert_input(matrix_size, matrix), str(determinant))
+    tester = Tester(args.ntest)
+    for i in range(args.ntest):
+        matrix, determinant = MatrixGen.get(args.matrix_size)
+        tester.run(Tester.convert_args(args.file), Tester.convert_input(args.matrix_size, matrix), str(determinant))
